@@ -1,0 +1,445 @@
+import { useState, useEffect, useRef } from 'react';
+import { Play, Pause, RotateCw, Award, Plus, Sparkles, Code, CheckCircle, XCircle } from 'lucide-react';
+import { Problem, UserProgress } from '../types';
+import { dsaData } from '../data';
+
+interface MockTestPanelProps {
+  userProgress: UserProgress;
+  onToggleProblem: (id: number, checked: boolean) => void;
+}
+
+export default function MockTestPanel({ userProgress, onToggleProblem }: MockTestPanelProps) {
+  const [testGenerated, setTestGenerated] = useState(false);
+  const [testType, setTestType] = useState<'standard' | 'faang' | 'speed'>('standard');
+  const [testProblems, setTestProblems] = useState<Problem[]>([]);
+  
+  // Timer state
+  const [timerActive, setTimerActive] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(2700); // 45 minutes default
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Coding draft states
+  const [drafts, setDrafts] = useState<{ [id: number]: string }>({});
+  const [complexities, setComplexities] = useState<{ [id: number]: { time: string; space: string } }>({});
+  const [grades, setGrades] = useState<{ [id: number]: 'pass' | 'fail' | null }>({});
+  const [graded, setGraded] = useState(false);
+
+  useEffect(() => {
+    if (timerActive) {
+      timerRef.current = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            setTimerActive(false);
+            if (timerRef.current) clearInterval(timerRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [timerActive]);
+
+  const handleStartTimer = () => setTimerActive(true);
+  const handlePauseTimer = () => setTimerActive(false);
+  const handleResetTimer = () => {
+    setTimerActive(false);
+    setTimeLeft(testType === 'speed' ? 1200 : testType === 'faang' ? 3600 : 2700);
+  };
+
+  const handleGenerateTest = () => {
+    // Collect all problems
+    const allProblems = dsaData.flatMap((cat) => cat.problems);
+    
+    let selected: Problem[] = [];
+    if (testType === 'standard') {
+      // 1 Easy, 1 Medium, 1 Hard
+      const easies = allProblems.filter((p) => p.difficulty === 'Easy');
+      const mediums = allProblems.filter((p) => p.difficulty === 'Medium');
+      const hards = allProblems.filter((p) => p.difficulty === 'Hard');
+
+      if (easies.length) selected.push(easies[Math.floor(Math.random() * easies.length)]);
+      if (mediums.length) selected.push(mediums[Math.floor(Math.random() * mediums.length)]);
+      if (hards.length) selected.push(hards[Math.floor(Math.random() * hards.length)]);
+      setTimeLeft(2700); // 45m
+    } else if (testType === 'faang') {
+      // 2 Medium, 1 Hard
+      const mediums = allProblems.filter((p) => p.difficulty === 'Medium');
+      const hards = allProblems.filter((p) => p.difficulty === 'Hard');
+
+      const shuffledMediums = [...mediums].sort(() => 0.5 - Math.random());
+      if (shuffledMediums.length >= 2) {
+        selected.push(shuffledMediums[0], shuffledMediums[1]);
+      } else if (shuffledMediums.length) {
+        selected.push(shuffledMediums[0]);
+      }
+      if (hards.length) selected.push(hards[Math.floor(Math.random() * hards.length)]);
+      setTimeLeft(3600); // 60m
+    } else {
+      // 3 Easy
+      const easies = allProblems.filter((p) => p.difficulty === 'Easy');
+      const shuffledEasies = [...easies].sort(() => 0.5 - Math.random());
+      selected = shuffledEasies.slice(0, 3);
+      setTimeLeft(1200); // 20m
+    }
+
+    setTestProblems(selected);
+    setTestGenerated(true);
+    setTimerActive(true);
+    setGraded(false);
+
+    // Initial drafts, complexities, grades reset
+    const initialDrafts: typeof drafts = {};
+    const initialComps: typeof complexities = {};
+    const initialGrades: typeof grades = {};
+    selected.forEach((p) => {
+      initialDrafts[p.id] = '';
+      initialComps[p.id] = { time: 'O(N)', space: 'O(1)' };
+      initialGrades[p.id] = null;
+    });
+    setDrafts(initialDrafts);
+    setComplexities(initialComps);
+    setGrades(initialGrades);
+  };
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const handleGrade = (id: number, status: 'pass' | 'fail') => {
+    setGrades(prev => ({ ...prev, [id]: status }));
+  };
+
+  const handleFinishTest = () => {
+    setTimerActive(false);
+    setGraded(true);
+
+    // Synchronize passed problems with actual user overall progress
+    testProblems.forEach((p) => {
+      if (grades[p.id] === 'pass') {
+        onToggleProblem(p.id, true);
+      }
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header Info */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700/80 shadow-sm text-left">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-blue-50 dark:bg-blue-950/40 rounded-lg text-[#0058bc] dark:text-[#adc6ff]">
+            <Award className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+              Mock Interview Simulator
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Select a session mode to generate a random 3-question mock test from your syllabus. Track time constraints and self-evaluate.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {!testGenerated ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+          {/* Card: Standard Track */}
+          <div className={`border rounded-2xl p-6 transition-all bg-white dark:bg-slate-800 ${
+            testType === 'standard' ? 'border-[#0058bc] ring-2 ring-blue-500/15' : 'border-slate-200 dark:border-slate-700/80 hover:border-slate-300'
+          }`}>
+            <div className="flex justify-between items-start">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
+                Recommended
+              </span>
+              <span className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400">
+                45 MINS
+              </span>
+            </div>
+            <h3 className="text-md font-bold text-slate-800 dark:text-slate-100 mt-4">
+              Standard Track
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Simulates a classic tech-company algorithmic interview.
+            </p>
+            <ul className="text-xs text-slate-600 dark:text-slate-300 mt-4 space-y-2">
+              <li className="flex items-center gap-2">🟢 1 Easy Problem</li>
+              <li className="flex items-center gap-2">🟡 1 Medium Problem</li>
+              <li className="flex items-center gap-2">🔴 1 Hard Problem</li>
+            </ul>
+            <button
+              onClick={() => { setTestType('standard'); handleGenerateTest(); }}
+              className="mt-6 w-full py-2 bg-[#0058bc] hover:bg-[#004bb3] text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+            >
+              Start Session
+            </button>
+          </div>
+
+          {/* Card: FAANG Prep */}
+          <div className={`border rounded-2xl p-6 transition-all bg-white dark:bg-slate-800 ${
+            testType === 'faang' ? 'border-[#0058bc] ring-2 ring-blue-500/15' : 'border-slate-200 dark:border-slate-700/80 hover:border-slate-300'
+          }`}>
+            <div className="flex justify-between items-start">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300">
+                Elite
+              </span>
+              <span className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400">
+                60 MINS
+              </span>
+            </div>
+            <h3 className="text-md font-bold text-slate-800 dark:text-slate-100 mt-4">
+              FAANG Challenge
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              A high-pressure track prioritizing core design patterns.
+            </p>
+            <ul className="text-xs text-slate-600 dark:text-slate-300 mt-4 space-y-2">
+              <li className="flex items-center gap-2">🟡 2 Medium Problems</li>
+              <li className="flex items-center gap-2">🔴 1 Hard Problem</li>
+            </ul>
+            <button
+              onClick={() => { setTestType('faang'); handleGenerateTest(); }}
+              className="mt-6 w-full py-2 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+            >
+              Start FAANG Prep
+            </button>
+          </div>
+
+          {/* Card: Speed Run */}
+          <div className={`border rounded-2xl p-6 transition-all bg-white dark:bg-slate-800 ${
+            testType === 'speed' ? 'border-[#0058bc] ring-2 ring-blue-500/15' : 'border-slate-200 dark:border-slate-700/80 hover:border-slate-300'
+          }`}>
+            <div className="flex justify-between items-start">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
+                Warmup
+              </span>
+              <span className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400">
+                20 MINS
+              </span>
+            </div>
+            <h3 className="text-md font-bold text-slate-800 dark:text-slate-100 mt-4">
+              Speed Warmup
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Perfect for reinforcing syntax and fundamental operations.
+            </p>
+            <ul className="text-xs text-slate-600 dark:text-slate-300 mt-4 space-y-2">
+              <li className="flex items-center gap-2">🟢 3 Easy Problems</li>
+              <li className="flex items-center gap-2">💡 Quick Syntax Drills</li>
+            </ul>
+            <button
+              onClick={() => { setTestType('speed'); handleGenerateTest(); }}
+              className="mt-6 w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+            >
+              Start Warmup
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6 text-left">
+          {/* Active Test Status & Timer Header */}
+          <div className="bg-slate-950 text-white rounded-2xl p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="text-center md:text-left">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-widest bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                Session Active
+              </span>
+              <h3 className="text-lg font-bold mt-2">
+                Revision Interview: {testType === 'speed' ? 'Speed Warmup' : testType === 'faang' ? 'FAANG Challenge' : 'Standard Session'}
+              </h3>
+            </div>
+
+            {/* Timer Controller */}
+            <div className="flex items-center gap-4 bg-slate-900 border border-slate-800 px-5 py-3 rounded-xl">
+              <span className={`text-2xl font-mono font-bold tracking-wider ${timeLeft <= 300 ? 'text-rose-500 animate-pulse' : 'text-slate-100'}`}>
+                {formatTime(timeLeft)}
+              </span>
+              <div className="flex items-center gap-1">
+                {timerActive ? (
+                  <button
+                    onClick={handlePauseTimer}
+                    className="p-1.5 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition-colors cursor-pointer"
+                    title="Pause"
+                  >
+                    <Pause className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleStartTimer}
+                    className="p-1.5 hover:bg-slate-800 rounded text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+                    title="Play"
+                  >
+                    <Play className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  onClick={handleResetTimer}
+                  className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  title="Reset Timer"
+                >
+                  <RotateCw className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Problem Cards list */}
+          <div className="space-y-6">
+            {testProblems.map((problem, idx) => (
+              <div key={problem.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-xl p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-slate-100 dark:border-slate-700 pb-3">
+                  <div className="flex items-center gap-3">
+                    <span className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 font-mono text-xs font-bold text-slate-500 dark:text-slate-400">
+                      Q{idx + 1}
+                    </span>
+                    <div>
+                      <a
+                        href={problem.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-md font-bold text-slate-800 dark:text-slate-100 hover:text-[#0058bc] dark:hover:text-[#adc6ff] transition-colors"
+                      >
+                        {problem.title}
+                      </a>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2 py-0.5 rounded-full text-white text-[10px] font-bold uppercase tracking-wider ${
+                      problem.difficulty === 'Easy' ? 'bg-[#00b8a3]' : problem.difficulty === 'Medium' ? 'bg-[#ffb800]' : 'bg-[#ff2d55]'
+                    }`}>
+                      {problem.difficulty}
+                    </span>
+                    {userProgress[problem.id]?.completed && (
+                      <span className="text-xs text-emerald-500 flex items-center gap-1 font-semibold">
+                        <CheckCircle className="w-3.5 h-3.5" /> Solved
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Answer Draft / Strategy Plan */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                      <Code className="w-3.5 h-3.5" /> Solution Draft & Strategy Notes:
+                    </label>
+                    <textarea
+                      placeholder="Write your plan, pseudo-code, or space-time complexity analysis here..."
+                      value={drafts[problem.id] || ''}
+                      onChange={(e) => setDrafts(prev => ({ ...prev, [problem.id]: e.target.value }))}
+                      disabled={graded}
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700/80 rounded-lg p-3 text-xs font-mono h-32 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-75"
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Complexities inputs */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                        Target Complexities:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase block mb-1">Time</span>
+                          <input
+                            type="text"
+                            placeholder="O(N)"
+                            value={complexities[problem.id]?.time || ''}
+                            onChange={(e) => setComplexities(prev => ({
+                              ...prev,
+                              [problem.id]: { ...prev[problem.id], time: e.target.value }
+                            }))}
+                            disabled={graded}
+                            className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/80 rounded px-2.5 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase block mb-1">Space</span>
+                          <input
+                            type="text"
+                            placeholder="O(1)"
+                            value={complexities[problem.id]?.space || ''}
+                            onChange={(e) => setComplexities(prev => ({
+                              ...prev,
+                              [problem.id]: { ...prev[problem.id], space: e.target.value }
+                            }))}
+                            disabled={graded}
+                            className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/80 rounded px-2.5 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Grading Selector */}
+                    <div className="space-y-2">
+                      <span className="text-xs font-bold text-slate-600 dark:text-slate-400 block">
+                        Self Evaluation:
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleGrade(problem.id, 'pass')}
+                          disabled={graded}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            grades[problem.id] === 'pass'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-900'
+                              : 'bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400 border border-transparent hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" /> Pass
+                        </button>
+                        <button
+                          onClick={() => handleGrade(problem.id, 'fail')}
+                          disabled={graded}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            grades[problem.id] === 'fail'
+                              ? 'bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/50 dark:text-rose-400 dark:border-rose-900'
+                              : 'bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400 border border-transparent hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          <XCircle className="w-3.5 h-3.5" /> Fail
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Finish Actions */}
+          <div className="pt-4 flex justify-between items-center bg-slate-50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {!graded 
+                  ? 'Ready to wrap up? Click Finish to record successful problems into your Overall syllabus.'
+                  : 'Session Completed. Successfully resolved problems have been synchronized with your primary progress board.'
+                }
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setTestGenerated(false)}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Exit Session
+              </button>
+              {!graded && (
+                <button
+                  onClick={handleFinishTest}
+                  className="px-5 py-2 bg-[#0058bc] hover:bg-[#004bb3] text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> Finish & Log
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

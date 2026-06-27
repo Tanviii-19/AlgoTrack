@@ -1,0 +1,318 @@
+import { useState, FormEvent } from 'react';
+import { 
+  TrendingUp, 
+  Award, 
+  Trash2, 
+  User, 
+  CheckCircle, 
+  Briefcase, 
+  Sparkles,
+  Zap,
+  BookOpen
+} from 'lucide-react';
+import { UserProgress } from '../types';
+import { dsaData } from '../data';
+
+interface AnalyticsPanelProps {
+  userProgress: UserProgress;
+  onClearData: () => void;
+  trackName: string;
+  setTrackName: (name: string) => void;
+}
+
+export default function AnalyticsPanel({
+  userProgress,
+  onClearData,
+  trackName,
+  setTrackName,
+}: AnalyticsPanelProps) {
+  const [activeTab, setActiveTab] = useState<'profile' | 'charts'>('charts');
+  const [inputName, setInputName] = useState(trackName);
+
+  // Statistics calculation
+  const totalProblems = dsaData.flatMap(c => c.problems);
+  const totalCount = totalProblems.length;
+  const completedProblems = totalProblems.filter(p => userProgress[p.id]?.completed);
+  const completedCount = completedProblems.length;
+  const completedPercentage = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
+
+  const easies = totalProblems.filter(p => p.difficulty === 'Easy');
+  const completedEasies = easies.filter(p => userProgress[p.id]?.completed);
+  const easyPercentage = easies.length === 0 ? 0 : Math.round((completedEasies.length / easies.length) * 100);
+
+  const mediums = totalProblems.filter(p => p.difficulty === 'Medium');
+  const completedMediums = mediums.filter(p => userProgress[p.id]?.completed);
+  const mediumPercentage = mediums.length === 0 ? 0 : Math.round((completedMediums.length / mediums.length) * 100);
+
+  const hards = totalProblems.filter(p => p.difficulty === 'Hard');
+  const completedHards = hards.filter(p => userProgress[p.id]?.completed);
+  const hardPercentage = hards.length === 0 ? 0 : Math.round((completedHards.length / hards.length) * 100);
+
+  // Category completion list
+  const categoryStats = dsaData.map(cat => {
+    const total = cat.problems.length;
+    const completed = cat.problems.filter(p => userProgress[p.id]?.completed).length;
+    return {
+      name: cat.category,
+      completed,
+      total,
+      percentage: total === 0 ? 0 : Math.round((completed / total) * 100),
+    };
+  }).sort((a, b) => b.percentage - a.percentage);
+
+  const handleSaveProfile = (e: FormEvent) => {
+    e.preventDefault();
+    if (inputName.trim()) {
+      setTrackName(inputName.trim());
+      alert('Profile metadata updated successfully!');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Settings / Analytics navigation tabs */}
+      <div className="flex border-b border-slate-200 dark:border-slate-700/80">
+        <button
+          onClick={() => setActiveTab('charts')}
+          className={`px-4 py-2.5 text-xs font-bold tracking-wider uppercase border-b-2 transition-all cursor-pointer ${
+            activeTab === 'charts'
+              ? 'border-[#0058bc] text-[#0058bc] dark:border-blue-400 dark:text-[#adc6ff]'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+          }`}
+        >
+          Analytics & Progress
+        </button>
+        <button
+          onClick={() => setActiveTab('profile')}
+          className={`px-4 py-2.5 text-xs font-bold tracking-wider uppercase border-b-2 transition-all cursor-pointer ${
+            activeTab === 'profile'
+              ? 'border-[#0058bc] text-[#0058bc] dark:border-blue-400 dark:text-[#adc6ff]'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+          }`}
+        >
+          Track & Profile Settings
+        </button>
+      </div>
+
+      {activeTab === 'charts' ? (
+        <div className="space-y-6 text-left">
+          {/* Top Bento Stats Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 flex items-center gap-4">
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-[#0058bc] dark:text-[#adc6ff]">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Overall Syllabus</p>
+                <p className="text-xl font-black text-slate-800 dark:text-slate-100">{completedPercentage}%</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{completedCount} / {totalCount} Solved</p>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 flex items-center gap-4">
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl text-[#00b8a3]">
+                <CheckCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Easy Target</p>
+                <p className="text-xl font-black text-[#00b8a3]">{easyPercentage}%</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{completedEasies.length} / {easies.length} Solved</p>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 flex items-center gap-4">
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl text-[#ffb800]">
+                <Zap className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Medium Target</p>
+                <p className="text-xl font-black text-[#ffb800]">{mediumPercentage}%</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{completedMediums.length} / {mediums.length} Solved</p>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 flex items-center gap-4">
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/40 rounded-xl text-[#ff2d55]">
+                <Award className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hard Target</p>
+                <p className="text-xl font-black text-[#ff2d55]">{hardPercentage}%</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{completedHards.length} / {hards.length} Solved</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Box: SVG Completion Ring Chart */}
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
+              <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-6 self-start">
+                Syllabus Progress Ring
+              </h4>
+              <div className="relative w-40 h-40 flex items-center justify-center">
+                {/* SVG circular progress ring */}
+                <svg className="w-full h-full transform -rotate-90">
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="64"
+                    strokeWidth="12"
+                    stroke="currentColor"
+                    className="text-slate-100 dark:text-slate-700"
+                    fill="transparent"
+                  />
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="64"
+                    strokeWidth="12"
+                    strokeDasharray={2 * Math.PI * 64}
+                    strokeDashoffset={2 * Math.PI * 64 * (1 - completedPercentage / 100)}
+                    strokeLinecap="round"
+                    stroke="currentColor"
+                    className="text-[#0058bc] dark:text-[#adc6ff] transition-all duration-1000 ease-out"
+                    fill="transparent"
+                  />
+                </svg>
+                <div className="absolute flex flex-col items-center">
+                  <span className="text-3xl font-black text-slate-800 dark:text-slate-100">
+                    {completedPercentage}%
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-1">
+                    Completed
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-3 gap-4 w-full border-t border-slate-100 dark:border-slate-700/60 pt-4">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Easy</span>
+                  <span className="text-sm font-extrabold text-[#00b8a3] mt-1 block">{completedEasies.length}</span>
+                </div>
+                <div className="border-x border-slate-100 dark:border-slate-700/60">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Medium</span>
+                  <span className="text-sm font-extrabold text-[#ffb800] mt-1 block">{completedMediums.length}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Hard</span>
+                  <span className="text-sm font-extrabold text-[#ff2d55] mt-1 block">{completedHards.length}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Box: Interactive Topic Completion Bars */}
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-6 lg:col-span-2">
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Completion Level by Topic
+                </h4>
+                <span className="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-mono px-2 py-0.5 rounded uppercase font-bold">
+                  High to Low
+                </span>
+              </div>
+              <div className="space-y-3.5 max-h-72 overflow-y-auto pr-1">
+                {categoryStats.map((item, idx) => (
+                  <div key={item.name} className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        {item.name}
+                      </span>
+                      <span className="text-slate-500 font-semibold font-mono">
+                        {item.completed} / {item.total} ({item.percentage}%)
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 dark:bg-slate-700/40 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          item.percentage === 100 
+                            ? 'bg-emerald-400' 
+                            : item.percentage > 50 
+                            ? 'bg-blue-400' 
+                            : item.percentage > 0 
+                            ? 'bg-amber-400' 
+                            : 'bg-slate-200 dark:bg-slate-700'
+                        }`}
+                        style={{ width: `${item.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+          {/* Profile Name and Track Preset */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-6 md:col-span-2 space-y-6">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
+              <User className="w-4 h-4 text-[#0058bc]" /> Profile & Track Customization
+            </h3>
+
+            <form onSubmit={handleSaveProfile} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-2">
+                  Revision Profile Name:
+                </label>
+                <input
+                  type="text"
+                  value={inputName}
+                  onChange={(e) => setInputName(e.target.value)}
+                  placeholder="e.g. Tanvi Silora"
+                  className="w-full max-w-md bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-lg px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-2">
+                  Active Interview Track Target:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
+                  <div className="border border-slate-200 dark:border-slate-700/80 bg-slate-50/40 dark:bg-slate-900/30 rounded-xl p-4 cursor-pointer hover:border-blue-300">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">Student Track</span>
+                    <p className="text-[11px] text-slate-500 mt-1">Focuses heavily on core patterns, basic to intermediate structures, and intervals optimization.</p>
+                  </div>
+                  <div className="border border-blue-200 bg-blue-50/10 dark:border-blue-900/50 dark:bg-blue-950/10 rounded-xl p-4 relative">
+                    <span className="text-xs font-bold text-[#0058bc] dark:text-blue-300 block">FAANG Elite Preparation</span>
+                    <p className="text-[11px] text-slate-500 mt-1">Syllabus targeting highly recurrent complex interview patterns with star difficulties.</p>
+                    <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#0058bc]" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-700/60">
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-[#0058bc] hover:bg-[#004bb3] text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer"
+                >
+                  Save Profile Settings
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Right Box: Critical Settings, Cleardown Data */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-6 flex flex-col justify-between">
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-rose-500 uppercase tracking-wider flex items-center gap-2">
+                <Trash2 className="w-4 h-4" /> Zone of Deletion
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Wiping data will clear all completed checkboxes, star markers, and custom notes. This process is irreversible and stores a clean slate.
+              </p>
+            </div>
+
+            <div className="pt-6">
+              <button
+                onClick={onClearData}
+                className="w-full py-2.5 bg-rose-50 hover:bg-rose-100/60 text-rose-600 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Wipe All Revision Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

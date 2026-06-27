@@ -1,0 +1,6 @@
+{
+  "name": "AlgoTrack",
+  "description": "A comprehensive Data Structures and Algorithms Revision Master to track practice problems, revise key concepts, maintain detailed notes, and monitor completion rates across 20 distinct topic tracks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
